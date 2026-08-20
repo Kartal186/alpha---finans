@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { feedbackTable } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { portfolioTable } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const list = await db
-      .select()
-      .from(feedbackTable)
-      .orderBy(desc(feedbackTable.createdAt))
-      .limit(50);
+    const list = await db.select().from(portfolioTable).orderBy(portfolioTable.createdAt);
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -18,18 +14,29 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userName, message } = await req.json();
+    const { assetId, assetName, category, buyPrice, amount, action, id } = await req.json();
 
-    if (!message) {
-      return NextResponse.json({ success: false, error: "Mesaj alanı boş bırakılamaz" }, { status: 400 });
+    if (action === "delete") {
+      if (!id) {
+        return NextResponse.json({ success: false, error: "Missing ID to delete" }, { status: 400 });
+      }
+      await db.delete(portfolioTable).where(eq(portfolioTable.id, Number(id)));
+      return NextResponse.json({ success: true, message: "Transaction deleted" });
     }
 
-    await db.insert(feedbackTable).values({
-      userName: userName || "Anonim Kaşif",
-      message,
+    if (!assetId || !assetName || !category || !buyPrice || !amount) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
+    }
+
+    await db.insert(portfolioTable).values({
+      assetId,
+      assetName,
+      category,
+      buyPrice: String(buyPrice),
+      amount: String(amount),
     });
 
-    return NextResponse.json({ success: true, message: "Geri bildiriminiz başarıyla kozmik veri tabanına kaydedildi!" });
+    return NextResponse.json({ success: true, message: "Transaction added successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
